@@ -54,8 +54,8 @@ class GraphState(TypedDict):
 
 #embedding model
 openai_embed_model = OpenAIEmbeddings(model='text-embedding-3-large')
-
-wikipedia_filepath = 'F:/Lucio/Descargas/simplewiki-2020-11-01.jsonl.gz'
+#initial documents to feed  vector database
+wikipedia_filepath = './simplewiki-2020-11-01.jsonl.gz'
 docs = []
 with gzip.open(wikipedia_filepath, 'rt', encoding='utf8') as fIn:
     for line in fIn:
