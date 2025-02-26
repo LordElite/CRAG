@@ -1,0 +1,14 @@
+langgraph
+langgraph-sdk
+langsmith
+langchain
+langchain-community
+langchain-core
+langchain-openai==0.1.14
+tavily-python
+langgraph-cli
+faiss
+openai
+pydantic==2.6.0
+IPython
+gzip
