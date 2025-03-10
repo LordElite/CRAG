@@ -37,6 +37,60 @@ tavily_key = os.getenv("TAVILY_API_KEY")
 # Initialize the OpenAI client
 client = OpenAI(api_key=openai_key)
 
+# LLM for detecting greetings and farewells
+llmg = ChatOpenAI(model="gpt-4o", temperature=0)
+# Prompt template for detector
+SYS_PROMPT_G = """You are an agent that detects if user query is exactly a pure greeting or pure farewell, in such a case, you just answer yes or no.
+                You are able to identify if user query is a greeting even when that contains typos or mistakes.
+                if the query contains a greeting or farewell with a question or different context, that's not considered a pure greeting.
+                 - pure greeting examples: hi, hello, good morning, good afternon, good evening.
+                 - pure farewell examples: good bye, bye bye, see ya, see you later, good night, so long.
+                 -non-greeting examples: Hello, who was Nikola Tesla?, Hi, what time is it in USA?, good morning, I want to know about Italy.
+             """
+greetings_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", SYS_PROMPT_G),
+        ("human", """Here is the initial question:
+                     {question}
+                     Define ifthe user query is precisely a pure greting or farewell.
+                  """,
+        ),
+    ]
+)
+# Create greetings chain
+question_greetings = (greetings_prompt
+                        |
+                       llmg
+                        |
+                     StrOutputParser())
+
+
+# LLM to response  in case of greetings or farewells
+llmg_r = ChatOpenAI(model="gpt-4o", temperature=1)
+# Prompt template for detector
+SYS_PROMPT_R = """You are a polite and friendly assistant. 
+If the user greets you (e.g., "hi", "hello", "good morning"), respond warmly with a greeting and offer your help as a research assistant. 
+If the user says goodbye (e.g., "bye", "see you", "take care", "so long"), reply kindly with a farewell.
+Keep your response natural and engaging, like a human conversation."""
+
+greetings_response_prompt = ChatPromptTemplate.from_messages(
+    [
+        ("system", SYS_PROMPT_R),
+        ("human", """Here is the initial question:
+                     {question}
+                     respond gently and polite to user.
+                  """,
+        ),
+    ]
+)
+
+# Create greetings chain
+question_greetings_r = (greetings_response_prompt
+                        |
+                       llmg_r
+                        |
+                     StrOutputParser())
+
 
 class GraphState(TypedDict):
     """
@@ -54,8 +108,8 @@ class GraphState(TypedDict):
 
 #embedding model
 openai_embed_model = OpenAIEmbeddings(model='text-embedding-3-large')
-#initial documents to feed  vector database
-wikipedia_filepath = './simplewiki-2020-11-01.jsonl.gz'
+
+wikipedia_filepath = 'F:/Lucio/Descargas/simplewiki-2020-11-01.jsonl.gz'
 docs = []
 with gzip.open(wikipedia_filepath, 'rt', encoding='utf8') as fIn:
     for line in fIn:
@@ -354,15 +408,37 @@ agentic_rag = agentic_rag.compile()
 
 
 #function to invoke agent model
-
-
 def agent(query: str) -> str:
     response = agentic_rag.invoke({"question": query})
     # Convert Markdown text to HTML using the markdown package
     html_output = markdown.markdown(response['generation'], extensions=['md_in_html'])
     return html_output
 
+#function to detect greetings and farewells
+def greeting_detector(question: str) -> str:
+    """
+    detect if user query is a greeting or a farewell
+    Args:
+        state (dict): The current graph state
+    Returns:
+        state (dict): updates the nature of user query, classifying it as a greeting or farewell (yes), or none of them (no)
+    """
+    # Retrieval
+    generation = question_greetings.invoke(question)
+    return generation
 
+#function to answer in case of greetings or farewells
+def greeting_responder(question: str) -> str:
+    """
+    answer as a polite and gentle assistant
+    Args:
+        state (dict): The current graph state
+    Returns:
+        state (dict): ends the chain with the final answer.
+    """
+    # Retrieval
+    generation = question_greetings_r.invoke(question)
+    return generation
 
 #moderator function in case of inapropriate words
 def moderate_response( question: str) -> bool:
