@@ -25,16 +25,21 @@ async def chat_endpoint(request: ChatRequest):
         if not question:
             raise HTTPException(status_code=400, detail="Please provide a valid question!")
         
-        # Moderation check
-        if crag_model.moderate_response(question):
-            response_text = (
-                "warning: So sorry!, but your statement has been flagged as inappropriate. "
-                "Please rephrase your input and try again"
-            )
+        #greetings and farewells detection
+        if 'yes' in crag_model.greeting_detector(question).lower() :
+
+            response_text = crag_model.greeting_responder(question)
         else:
-            # Process the question using your agent
-            response_text = crag_model.agent(question)
-            print(f"Generated response: {response_text}, {type(response_text)}")
+            # Moderation check
+            if crag_model.moderate_response(question):
+                response_text = (
+                    "warning: So sorry!, but your statement has been flagged as inappropriate. "
+                    "Please rephrase your input and try again"
+                )
+            else:
+                # Process the question using your agent
+                response_text = crag_model.agent(question)
+                print(f"Generated response: {response_text}, {type(response_text)}")
         
         return {"answer": response_text}
     except Exception as e:
